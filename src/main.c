@@ -2,7 +2,9 @@
 #include<stdio.h>
 #include<math.h>
 #include<SDL.h>
-#include<GL/gl.h>
+#include<gl.h>
+
+#include "render.h"
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
@@ -22,12 +24,28 @@
 			exit(1);	
 			}
 
-		SDL_GLContext context=SDL_GL_CreateContext(window);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);	
-		
+		SDL_GLContext context=SDL_GL_CreateContext(window);
+		init_render();	
+		float scale=180.0;
+
+		float x_unit=scale/SCREEN_WIDTH;
+		float y_unit=scale/SCREEN_HEIGHT;
+		float z_unit=1e-3;
+
+		const float projection[]={
+			-sqrt(0.5)*x_unit,0.5*sqrt(0.5)*y_unit,0.25*sqrt(6)*z_unit,0.0f,
+			sqrt(0.5)*x_unit,0.5*sqrt(0.5)*y_unit,0.25*sqrt(6)*z_unit,0.0f,
+			0.0f,0.5*sqrt(3)*y_unit,-0.5*z_unit,0.0f,
+			0.0f,-0.8f,0.0f,1.0f,
+			};
+		heightmap_t bed,water;
+		//heightmap_init(&bed,256,5.0,0.5,0.5,0.5);
+		heightmap_init(&water,256,5.0,0.0,0.5,1.0);
 		int running=true;
 			while(running)
 			{
@@ -38,6 +56,7 @@
 				}
 			glClearColor(0.0, 0.0, 0.0, 1.0);
 			glClear(GL_COLOR_BUFFER_BIT);
+			heightmap_render(&water,projection);
 			SDL_GL_SwapWindow(window);
 			}
 		SDL_GL_DeleteContext(context);
