@@ -5,6 +5,7 @@
 #include<gl.h>
 
 #include "render.h"
+#include "solver.h"
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
@@ -46,6 +47,10 @@
 		heightmap_t bed,water;
 		//heightmap_init(&bed,256,5.0,0.5,0.5,0.5);
 		heightmap_init(&water,256,5.0,0.0,0.5,1.0);
+
+
+		solver_t solver;
+		solver_init(&solver,256,256,5.0);
 		int running=true;
 			while(running)
 			{
@@ -56,6 +61,9 @@
 				}
 			glClearColor(0.0, 0.0, 0.0, 1.0);
 			glClear(GL_COLOR_BUFFER_BIT);
+			solver_compute_step(&solver,0.001);
+			solver_compute_step(&solver,0.001);
+			heightmap_update(&water,solver.cells.w);
 			heightmap_render(&water,projection);
 			SDL_GL_SwapWindow(window);
 			}
