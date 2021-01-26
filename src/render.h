@@ -1,7 +1,9 @@
 #ifndef RENDER_H_INCLUDED
 #define RENDER_H_INCLUDED
 #define GL_SILENCE_DEPRECATION
-#include<gl.h>
+
+#include<GL/glew.h>
+#include<GL/gl.h>
 
 
 typedef struct

@@ -2,7 +2,6 @@
 #include<stdio.h>
 #include<math.h>
 #include<SDL.h>
-#include<gl.h>
 
 #include "render.h"
 #include "solver.h"
@@ -31,7 +30,14 @@
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);	
 		SDL_GLContext context=SDL_GL_CreateContext(window);
+		GLenum err = glewInit();
+		if (GLEW_OK != err)
+		{
+		printf("GLEW init failed: %s!n", glewGetErrorString(err));
+		exit(1);
+		}
 		init_render();	
+
 		float scale=180.0;
 
 		float x_unit=scale/SCREEN_WIDTH;
@@ -45,7 +51,7 @@
 			0.0f,-0.8f,0.0f,1.0f,
 			};
 		heightmap_t bed,water;
-		//heightmap_init(&bed,256,5.0,0.5,0.5,0.5);
+		heightmap_init(&bed,256,5.0,0.5,0.5,0.5);
 		heightmap_init(&water,256,5.0,0.0,0.5,1.0);
 
 
@@ -67,6 +73,7 @@
 			heightmap_render(&water,projection);
 			SDL_GL_SwapWindow(window);
 			}
+
 		SDL_GL_DeleteContext(context);
 		SDL_DestroyWindow(window);
 		SDL_Quit();
