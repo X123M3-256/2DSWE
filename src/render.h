@@ -10,6 +10,8 @@ typedef struct
 {
 int n;
 float size;
+float x_offset;
+float y_offset;
 float delta_x;
 float color[3];
 int num_vertices;
@@ -23,7 +25,7 @@ GLuint texture;
 GLuint shader_build(const char* vertex_filename,const char* fragment_filename);
 
 void init_render();
-void heightmap_init(heightmap_t* heightmap,int n,float dx,float r,float g,float b);
+void heightmap_init(heightmap_t* heightmap,int n,float size,float x_offset,float y_offset,float r,float g,float b);
 void heightmap_update(heightmap_t* heightmap,float* data);
 void heightmap_render(heightmap_t* heightmap,const float* projection);
 

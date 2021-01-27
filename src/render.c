@@ -13,6 +13,7 @@ struct
 	GLuint heightmap_loc;
 	GLuint delta_x_loc;
 	GLuint map_size_loc;
+	GLuint offset_loc;
 	GLuint mat_color_loc;
 	}
 	heightmap_shader;
@@ -69,15 +70,18 @@ resources.heightmap_shader.mvp_loc=glGetUniformLocation(resources.heightmap_shad
 resources.heightmap_shader.heightmap_loc=glGetUniformLocation(resources.heightmap_shader.program,"heightmap");
 resources.heightmap_shader.delta_x_loc=glGetUniformLocation(resources.heightmap_shader.program,"delta_x");
 resources.heightmap_shader.map_size_loc=glGetUniformLocation(resources.heightmap_shader.program,"map_size");
+resources.heightmap_shader.offset_loc=glGetUniformLocation(resources.heightmap_shader.program,"offset");
 resources.heightmap_shader.mat_color_loc=glGetUniformLocation(resources.heightmap_shader.program,"mat_color");
 }
 
 
 
-void heightmap_init(heightmap_t* heightmap,int n,float size,float r,float g,float b)
+void heightmap_init(heightmap_t* heightmap,int n,float size,float x_offset,float y_offset,float r,float g,float b)
 {
 heightmap->n=n;
 heightmap->size=size;
+heightmap->x_offset=x_offset;
+heightmap->y_offset=y_offset;
 heightmap->delta_x=size/(n-1);
 heightmap->color[0]=r;
 heightmap->color[1]=g;
@@ -98,8 +102,8 @@ GLuint* indices=malloc(heightmap->num_indices*sizeof(GLuint));
         for(int x=0;x<n;x++)
         {
 	int index=2*(x+y*n);
-        vertices[index]=x*heightmap->delta_x;
-        vertices[index+1]=y*heightmap->delta_x;
+        vertices[index]=x*heightmap->delta_x+x_offset;
+        vertices[index+1]=y*heightmap->delta_x+y_offset;
         }
 
         for(int y=0;y<n-1;y++)
@@ -124,7 +128,7 @@ glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
 glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-glTexImage2D(GL_TEXTURE_2D,0,GL_RED,n,n,0,GL_RED,GL_FLOAT,data);
+glTexImage2D(GL_TEXTURE_2D,0,GL_R32F,n,n,0,GL_RED,GL_FLOAT,data);
 
 //Send buffer data to graphics card
 glBindBuffer(GL_ARRAY_BUFFER,heightmap->vbo);
@@ -147,7 +151,7 @@ free(data);
 void heightmap_update(heightmap_t* heightmap,float* data)
 {
 glBindTexture(GL_TEXTURE_2D,heightmap->texture);
-glTexImage2D(GL_TEXTURE_2D,0,GL_RED,heightmap->n,heightmap->n,0,GL_RED,GL_FLOAT,data);
+glTexImage2D(GL_TEXTURE_2D,0,GL_R32F,heightmap->n,heightmap->n,0,GL_RED,GL_FLOAT,data);
 }
 
 
@@ -170,7 +174,6 @@ glTexSubImage2D(GL_TEXTURE_2D,0,0,0,DOMAIN_POINTS,DOMAIN_POINTS,GL_LUMINANCE,GL_
 
 void heightmap_render(heightmap_t* heightmap,const float* projection)
 {
-glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 glUseProgram(resources.heightmap_shader.program);
 glBindVertexArray(heightmap->vao);
 
@@ -183,6 +186,7 @@ glUniformMatrix4fv(resources.heightmap_shader.mvp_loc,1,GL_FALSE,projection);
 glUniform1f(resources.heightmap_shader.delta_x_loc,heightmap->delta_x);
 glUniform1f(resources.heightmap_shader.map_size_loc,heightmap->size);
 glUniform1i(resources.heightmap_shader.heightmap_loc,0);
+glUniform2f(resources.heightmap_shader.offset_loc,heightmap->x_offset,heightmap->y_offset);
 glUniform3f(resources.heightmap_shader.mat_color_loc,heightmap->color[0],heightmap->color[1],heightmap->color[2]);
 
 //Render patch
