@@ -76,12 +76,13 @@ resources.heightmap_shader.mat_color_loc=glGetUniformLocation(resources.heightma
 
 
 
-void heightmap_init(heightmap_t* heightmap,int n,float size,float x_offset,float y_offset,float r,float g,float b)
+void heightmap_init(heightmap_t* heightmap,int n,float size,float x_offset,float y_offset,float z_offset,float r,float g,float b)
 {
 heightmap->n=n;
 heightmap->size=size;
 heightmap->x_offset=x_offset;
 heightmap->y_offset=y_offset;
+heightmap->z_offset=z_offset;
 heightmap->delta_x=size/(n-1);
 heightmap->color[0]=r;
 heightmap->color[1]=g;
@@ -102,8 +103,8 @@ GLuint* indices=malloc(heightmap->num_indices*sizeof(GLuint));
         for(int x=0;x<n;x++)
         {
 	int index=2*(x+y*n);
-        vertices[index]=x*heightmap->delta_x+x_offset;
-        vertices[index+1]=y*heightmap->delta_x+y_offset;
+        vertices[index]=x*heightmap->delta_x;
+        vertices[index+1]=y*heightmap->delta_x;
         }
 
         for(int y=0;y<n-1;y++)
@@ -186,7 +187,7 @@ glUniformMatrix4fv(resources.heightmap_shader.mvp_loc,1,GL_FALSE,projection);
 glUniform1f(resources.heightmap_shader.delta_x_loc,heightmap->delta_x);
 glUniform1f(resources.heightmap_shader.map_size_loc,heightmap->size);
 glUniform1i(resources.heightmap_shader.heightmap_loc,0);
-glUniform2f(resources.heightmap_shader.offset_loc,heightmap->x_offset,heightmap->y_offset);
+glUniform3f(resources.heightmap_shader.offset_loc,heightmap->x_offset,heightmap->y_offset,heightmap->z_offset);
 glUniform3f(resources.heightmap_shader.mat_color_loc,heightmap->color[0],heightmap->color[1],heightmap->color[2]);
 
 //Render patch

@@ -60,17 +60,22 @@
 */
 
 		heightmap_t bed,water;
-		heightmap_init(&bed,256,5.0,0.5,0.5,0.5);
-		heightmap_init(&water,256,5.0,0.0,0.5,1.0);
+		float size=5.0;
+		int n=200;
+
+		float dx=size/(n-1);
+		heightmap_init(&bed,n-1,size-dx,0,0,0.01,0.5,0.5,0.5);
+		heightmap_init(&water,n,size,-0.5*dx,-0.5*dx,0,0.0,0.5,1.0);
 
 
 		float tool_x=2.5;
 		float tool_y=2.5;
 		float dt=0.001;
+		int tool=0;
 		float add_rate=0.0;
 
 		solver_t solver;
-		solver_init(&solver,256,256,5.0);
+		solver_init(&solver,n,n,size);
 		int running=true;
 			while(running)
 			{
@@ -80,8 +85,8 @@
 					if(event.type==SDL_QUIT)running=false;
 					else if(event.type==SDL_MOUSEBUTTONDOWN)
 					{
-						if(event.button.button==SDL_BUTTON_LEFT)add_rate=0.02;
-						else if(event.button.button==SDL_BUTTON_RIGHT)add_rate=-0.02;
+						if(event.button.button==SDL_BUTTON_LEFT)add_rate=0.1;
+						else if(event.button.button==SDL_BUTTON_RIGHT)add_rate=-0.1;
 					}
 					else if(event.type==SDL_MOUSEBUTTONUP)
 					{
@@ -94,23 +99,59 @@
 					tool_x=0.5*sqrt(2)*(2.0*screen_y/y_unit-screen_x/x_unit);
 					tool_y=0.5*sqrt(2)*(2.0*screen_y/y_unit+screen_x/x_unit);
 					}
+					else if(event.type==SDL_KEYDOWN)
+					{
+						if(event.key.keysym.sym==SDLK_w)tool=0;	
+						else if(event.key.keysym.sym==SDLK_b)tool=1;
+					}
 	
 				}
 			glClearColor(0.0, 0.0, 0.0, 1.0);
-			glClear(GL_COLOR_BUFFER_BIT);
+			glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
+			#define BED(x,y) (solver.bed[(x)+(y)*(solver.x_points-1)])
 				if(add_rate!=0.0)
-				for(uint32_t y=1;y<solver.y_points-1;y++)
-				for(uint32_t x=1;x<solver.x_points-1;x++)
-				{	
-				float a_x=x*solver.delta_x-tool_x;
-				float a_y=y*solver.delta_x-tool_y;
-				float d=sqrt(a_x*a_x+a_y*a_y);
-				float r=0.5;
-					if(d<r)
+				{
+					if(tool==0)
 					{
-					solver.cells.w[x+y*solver.x_points]+=add_rate*(1.0+cos(3.141592654*d/r))*(solver.delta_x*solver.delta_x/dt);
-					if(solver.cells.w[x+y*solver.x_points]<0.01)solver.cells.w[x+y*solver.x_points]=0.01;
+						for(uint32_t y=1;y<solver.y_points-1;y++)
+						for(uint32_t x=1;x<solver.x_points-1;x++)
+						{	
+						float a_x=x*solver.delta_x-tool_x-0.5*solver.delta_x;
+						float a_y=y*solver.delta_x-tool_y-0.5*solver.delta_x;
+						float d=sqrt(a_x*a_x+a_y*a_y);
+						float r=0.5;
+							if(d<r)
+							{
+							solver.cells.w[x+y*solver.x_points]+=add_rate*(1.0+cos(3.141592654*d/r))*solver.delta_x*solver.delta_x/dt;
+							}
+						}
+					}
+					else if(tool==1)
+					{
+						for(uint32_t y=0;y<solver.y_points-1;y++)
+						for(uint32_t x=0;x<solver.x_points-1;x++)
+						{	
+						float a_x=x*solver.delta_x-tool_x;
+						float a_y=y*solver.delta_x-tool_y;
+						float d=sqrt(a_x*a_x+a_y*a_y);
+						float r=0.2;
+							if(d<r)
+							{
+							float addition=0.1*add_rate*(1.0+cos(3.141592654*d/r))*solver.delta_x*solver.delta_x/dt;
+							BED(x,y)+=addition;
+							solver.cells.w[x+y*solver.x_points]+=0.25*addition;
+							solver.cells.w[x+1+y*solver.x_points]+=0.25*addition;
+							solver.cells.w[x+(y+1)*solver.x_points]+=0.25*addition;
+							solver.cells.w[x+1+(y+1)*solver.x_points]+=0.25*addition;
+							}
+						}
+					}
+					for(uint32_t y=1;y<solver.y_points-1;y++)
+					for(uint32_t x=1;x<solver.x_points-1;x++)
+					{	
+					float bed=0.25*(BED(x,y)+BED(x-1,y)+BED(x,y-1)+BED(x-1,y-1));
+						if(solver.cells.w[x+y*solver.x_points]<bed)solver.cells.w[x+y*solver.x_points]=bed;
 					}
 				}
 
@@ -119,7 +160,9 @@
 			solver_compute_step(&solver,dt);
 			solver_compute_step(&solver,dt);
 			heightmap_update(&water,solver.cells.w);
+			heightmap_update(&bed,solver.bed);
 			heightmap_render(&water,projection);
+			heightmap_render(&bed,projection);
 			SDL_GL_SwapWindow(window);
 			}
 

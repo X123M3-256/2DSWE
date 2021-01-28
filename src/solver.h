@@ -29,6 +29,7 @@ edge_data_t x_minus;
 edge_data_t y_plus;
 edge_data_t y_minus;
 
+float* bed;
 float* x_flux_w;
 float* x_flux_qx;
 float* x_flux_qy;
