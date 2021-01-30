@@ -38,7 +38,7 @@
 		}
 		init_render();	
 
-		float scale=180.0;
+		float scale=180.0/10.0;
 
 		float x_unit=scale/SCREEN_WIDTH;
 		float y_unit=scale/SCREEN_HEIGHT;
@@ -59,24 +59,26 @@
 			};
 */
 
-		heightmap_t bed,water;
-		float size=5.0;
-		int n=200;
+		heightmap_t bed;
+		water_t water;
+		float size=50.0;
+		int n=100;
 
 		float dx=size/(n-1);
-		heightmap_init(&bed,n-1,size-dx,0,0,0.01,0.5,0.5,0.5);
-		heightmap_init(&water,n,size,-0.5*dx,-0.5*dx,0,0.0,0.5,1.0);
+		heightmap_init(&bed,n-1,size-dx,0,0,0.01,"rock_texture.png");
+		water_init(&water,n,size,-0.5*dx,-0.5*dx,0,"water_texture.png");
 
 
 		float tool_x=2.5;
 		float tool_y=2.5;
-		float dt=0.001;
+		float dt=0.002;
 		int tool=0;
 		float add_rate=0.0;
 
 		solver_t solver;
 		solver_init(&solver,n,n,size);
 		int running=true;
+		float t=0.0;
 			while(running)
 			{
 			SDL_Event event;
@@ -85,8 +87,8 @@
 					if(event.type==SDL_QUIT)running=false;
 					else if(event.type==SDL_MOUSEBUTTONDOWN)
 					{
-						if(event.button.button==SDL_BUTTON_LEFT)add_rate=0.1;
-						else if(event.button.button==SDL_BUTTON_RIGHT)add_rate=-0.1;
+						if(event.button.button==SDL_BUTTON_LEFT)add_rate=0.001;
+						else if(event.button.button==SDL_BUTTON_RIGHT)add_rate=-0.001;
 					}
 					else if(event.type==SDL_MOUSEBUTTONUP)
 					{
@@ -102,7 +104,7 @@
 					else if(event.type==SDL_KEYDOWN)
 					{
 						if(event.key.keysym.sym==SDLK_w)tool=0;	
-						else if(event.key.keysym.sym==SDLK_b)tool=1;
+						else if(event.key.keysym.sym==SDLK_s)tool=1;
 					}
 	
 				}
@@ -120,7 +122,7 @@
 						float a_x=x*solver.delta_x-tool_x-0.5*solver.delta_x;
 						float a_y=y*solver.delta_x-tool_y-0.5*solver.delta_x;
 						float d=sqrt(a_x*a_x+a_y*a_y);
-						float r=0.5;
+						float r=5;
 							if(d<r)
 							{
 							solver.cells.w[x+y*solver.x_points]+=add_rate*(1.0+cos(3.141592654*d/r))*solver.delta_x*solver.delta_x/dt;
@@ -135,15 +137,19 @@
 						float a_x=x*solver.delta_x-tool_x;
 						float a_y=y*solver.delta_x-tool_y;
 						float d=sqrt(a_x*a_x+a_y*a_y);
-						float r=0.2;
+						float r=3;
 							if(d<r)
 							{
-							float addition=0.1*add_rate*(1.0+cos(3.141592654*d/r))*solver.delta_x*solver.delta_x/dt;
+							float addition=0.3*add_rate*(1.0+cos(3.141592654*d/r))*solver.delta_x*solver.delta_x/dt;
+								if(BED(x,y)+addition<0.01)addition=0.01-BED(x,y);
 							BED(x,y)+=addition;
-							solver.cells.w[x+y*solver.x_points]+=0.25*addition;
-							solver.cells.w[x+1+y*solver.x_points]+=0.25*addition;
-							solver.cells.w[x+(y+1)*solver.x_points]+=0.25*addition;
-							solver.cells.w[x+1+(y+1)*solver.x_points]+=0.25*addition;
+								if(addition<0)
+								{
+								solver.cells.w[x+y*solver.x_points]+=0.25*addition;
+								solver.cells.w[x+1+y*solver.x_points]+=0.25*addition;
+								solver.cells.w[x+(y+1)*solver.x_points]+=0.25*addition;
+								solver.cells.w[x+1+(y+1)*solver.x_points]+=0.25*addition;
+								}
 							}
 						}
 					}
@@ -154,16 +160,33 @@
 						if(solver.cells.w[x+y*solver.x_points]<bed)solver.cells.w[x+y*solver.x_points]=bed;
 					}
 				}
-
-
-
+			
 			solver_compute_step(&solver,dt);
 			solver_compute_step(&solver,dt);
-			heightmap_update(&water,solver.cells.w);
+		
+			float* velocity_x=calloc(solver.x_points*solver.y_points,sizeof(float));
+			float* velocity_y=calloc(solver.x_points*solver.y_points,sizeof(float));
+				for(uint32_t y=1;y<solver.y_points-1;y++)
+				for(uint32_t x=1;x<solver.x_points-1;x++)
+				{
+				float h=solver.cells.w[x+y*solver.x_points]-0.25*(solver.bed[x+y*(solver.x_points-1)]+solver.bed[x-1+y*(solver.x_points-1)]+solver.bed[x+(y-1)*(solver.x_points-1)]+solver.bed[x-1+(y-1)*(solver.x_points-1)]);
+					if(h>0.0001)
+					{
+					velocity_x[x+y*solver.x_points]=solver.cells.qx[x+y*solver.x_points]/h;
+					velocity_y[x+y*solver.x_points]=solver.cells.qy[x+y*solver.x_points]/h;
+					}
+				}
+			water_update(&water,solver.cells.w,velocity_x,velocity_y,2*dt);
+			
 			heightmap_update(&bed,solver.bed);
-			heightmap_render(&water,projection);
+			free(velocity_x);
+			free(velocity_y);
+
+			water_render(&water,projection);
 			heightmap_render(&bed,projection);
 			SDL_GL_SwapWindow(window);
+			t+=2*dt;
+			printf("%f\n",t);
 			}
 
 		SDL_GL_DeleteContext(context);

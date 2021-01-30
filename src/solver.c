@@ -14,7 +14,7 @@ void solver_init(solver_t* solver,uint32_t x_points,uint32_t y_points,float widt
 {
 solver->x_points=x_points;
 solver->y_points=y_points;
-solver->delta_x=width/(x_points-1);
+solver->delta_x=width/(x_points-2);
 
 solver->cells.w=calloc(x_points*y_points,sizeof(float));
 solver->cells.qx=calloc(x_points*y_points,sizeof(float));
@@ -27,16 +27,24 @@ solver->bed=calloc((x_points-1)*(y_points-1),sizeof(float));
 	{
 	float x=i*solver->delta_x;
 	float y=j*solver->delta_x;
-		if(x>3&&x<4)solver->bed[i+j*(solver->x_points-1)]=0.4+0.4*cos(2*M_PI*(x-3.5));//+(y-2.5)*(y-2.5)));
-		if(y>2&&y<3)solver->bed[i+j*(solver->x_points-1)]*=0.5-0.5*cos(2*M_PI*(y-2.5));
+		//solver->bed[i+j*(solver->x_points-1)]=3*(x/50.0)+4;
+//		if(y>20&&y<30)solver->bed[i+j*(solver->x_points-1)]-=3;
+//		if(y>17.5&&y<20)solver->bed[i+j*(solver->x_points-1)]-=3*0.4*(y-17.5);
+//		if(y>30&&y<32.5)solver->bed[i+j*(solver->x_points-1)]-=3*(1.0-0.4*(y-30.0));
+
+		if(x>30&&x<40)solver->bed[i+j*(solver->x_points-1)]=2.2+2.2*cos(0.2*M_PI*(x-35));//+(y-2.5)*(y-2.5)));
+		if(y>17.5&&y<22.5)solver->bed[i+j*(solver->x_points-1)]*=0.5-0.5*cos(0.4*M_PI*(y-20));
+		if(y>22.5&&y<27.5)solver->bed[i+j*(solver->x_points-1)]*=0.5-0.5*cos(0.4*M_PI*(y-25));
+		if(y>27.5&&y<32.5)solver->bed[i+j*(solver->x_points-1)]*=0.5-0.5*cos(0.4*M_PI*(y-30));
 	}
 	for(int32_t i=1;i<x_points-1;i++)
 	for(int32_t j=1;j<y_points-1;j++)
 	{
-	float x=(i+0.5)*solver->delta_x;
-	float y=(j+0.5)*solver->delta_x;
+	float x=(i-0.5)*solver->delta_x;
+	float y=(j-0.5)*solver->delta_x;
 	float bed=0.25*(solver->bed[i+j*(solver->x_points-1)]+solver->bed[(i-1)+j*(solver->x_points-1)]+solver->bed[i+(j-1)*(solver->x_points-1)]+solver->bed[(i-1)+(j-1)*(solver->x_points-1)]);
-	float level=x>3.5?0.5:0.15;
+	//float level=3.0*(x/50.0)+2.5;
+	float level=x>35?4:1;
 	solver->cells.w[i+j*x_points]=bed>level?bed:level;
 	}
 
@@ -148,28 +156,37 @@ return qy*vy+0.5*9.81*h*h;
 
 void compute_boundary_conditions(solver_t* s)
 {
+static float t=0;
 	for(uint32_t x=1;x<s->x_points-1;x++)
 	{
-	CELL(s->cells.w,x,0)=CELL(s->cells.w,x,1);
-	CELL(s->cells.qx,x,0)=CELL(s->cells.qx,x,1);
-	CELL(s->cells.qy,x,0)=-CELL(s->cells.qy,x,1);
+	float bed=0.5*(BED(x,0)+BED(x-1,0));
+	float level=((x-0.5)*s->delta_x)>35?4:1;
+	CELL(s->cells.w,x,0)=level>bed?level:bed;//*CELL(s->cells.w,x,1);
+	CELL(s->cells.qx,x,0)=0;//CELL(s->cells.qx,x,1);
+	CELL(s->cells.qy,x,0)=CELL(s->cells.qy,x,1);
 
-	CELL(s->cells.w,x,s->y_points-1)=CELL(s->cells.w,x,s->y_points-2);
-	CELL(s->cells.qx,x,s->y_points-1)=CELL(s->cells.qx,x,s->y_points-2);
-	CELL(s->cells.qy,x,s->y_points-1)=-CELL(s->cells.qy,x,s->y_points-2);
+	bed=0.5*(BED(x,s->y_points-2)+BED(x-1,s->y_points-2));
+	CELL(s->cells.w,x,s->y_points-1)=level>bed?level:bed;//CELL(s->cells.w,x,s->y_points-2);
+	CELL(s->cells.qx,x,s->y_points-1)=0;//CELL(s->cells.qx,x,s->y_points-2);
+	CELL(s->cells.qy,x,s->y_points-1)=CELL(s->cells.qy,x,s->y_points-2);
 	}
 	
 	for(uint32_t y=1;y<s->y_points-1;y++)
 	{
-	CELL(s->cells.w,0,y)=0.15;//CELL(s->cells.w,1,y);
+	float bed=0.5*(BED(0,y)+BED(0,y-1));
+	float level=1;//2;
+	CELL(s->cells.w,0,y)=level>bed?level:bed;//;//CELL(s->cells.w,1,y);
 	CELL(s->cells.qx,0,y)=CELL(s->cells.qx,1,y);
 	CELL(s->cells.qy,0,y)=CELL(s->cells.qy,1,y);
 
-	CELL(s->cells.w,s->x_points-1,y)=0.5;//CELL(s->cells.w,s->x_points-2,y);
+	bed=0.5*(BED(s->x_points-2,y)+BED(s->x_points-2,y-1));
+	level=4;//5.5;//+0.04*sin(t);
+	CELL(s->cells.w,s->x_points-1,y)=level>bed?level:bed;//0.5*(BED(s->x_points-2,y)+BED(s->x_points-2,y));//CELL(s->cells.w,s->x_points-2,y);
 	CELL(s->cells.qx,s->x_points-1,y)=CELL(s->cells.qx,s->x_points-2,y);
 	CELL(s->cells.qy,s->x_points-1,y)=CELL(s->cells.qy,s->x_points-2,y);
 	}
 
+t+=0.03;
 }
 
 float compute_velocity(float q,float h)
@@ -194,10 +211,12 @@ void compute_fluxes(solver_t* s)
 	float bed=0.5*(BED(x,y)+BED(x,y+1));
 	float w_plus=X_EDGE(s->x_plus.w,x,y);
 	float h_plus=w_plus-bed;
+		if(h_plus<-0.00001)printf("HNEG X+ %f coords %d %d\n",h_plus,x,y);
 	float qx_plus=X_EDGE(s->x_plus.qx,x,y);
 	float qy_plus=X_EDGE(s->x_plus.qy,x,y);
 	float w_minus=X_EDGE(s->x_minus.w,x,y);
 	float h_minus=w_minus-bed;
+		if(h_minus<-0.00001)printf("HNEG X- %f coords %d %d\n",h_minus,x,y);
 	float qx_minus=X_EDGE(s->x_minus.qx,x,y);
 	float qy_minus=X_EDGE(s->x_minus.qy,x,y);
 
@@ -226,19 +245,32 @@ void compute_fluxes(solver_t* s)
 		X_EDGE(s->x_flux_qx,x,y)=0.0;
 		X_EDGE(s->x_flux_qy,x,y)=0.0;
 		}
+		/*
+		if(x==s->x_points-2&&y==50)
+		{
+		printf("h: %f %f\n",h_plus,h_minus);
+		printf("qx: %f %f\n",qx_plus,qx_minus);
+		printf("qy: %f %f\n",qy_plus,qy_minus);
+		printf("%f\n\n",X_EDGE(s->x_flux_w ,x,y));
+			if(isnan(h_plus))exit(0);
+		}
+		*/
 	}
 
 //Y flux
+
 	for(uint32_t y=0;y<s->y_points-1;y++)
 	for(uint32_t x=0;x<s->x_points-2;x++)
 	{
 	float bed=0.5*(BED(x,y)+BED(x+1,y));
 	float w_plus=Y_EDGE(s->y_plus.w,x,y);
 	float h_plus=w_plus-bed;
+	//	if(h_plus<0)printf("HNEG\n");
 	float qx_plus=Y_EDGE(s->y_plus.qx,x,y);
 	float qy_plus=Y_EDGE(s->y_plus.qy,x,y);
 	float w_minus=Y_EDGE(s->y_minus.w,x,y);
 	float h_minus=w_minus-bed;
+	//	if(h_minus<0)printf("HNEG\n");
 	float qx_minus=Y_EDGE(s->y_minus.qx,x,y);
 	float qy_minus=Y_EDGE(s->y_minus.qy,x,y);
 
@@ -274,6 +306,10 @@ void compute_fluxes(solver_t* s)
 
 void solver_compute_step(solver_t* s,float dt)
 {
+//static int count=0;
+//	if(count%10==0)printf("%d\n",count);
+//	if(count>600)getchar();
+//count++;
 //Impose boundary conditions
 compute_boundary_conditions(s);
 
@@ -315,6 +351,22 @@ compute_reconstruction(s->x_points,s->y_points,s->delta_x,s->cells.qy,s->x_minus
 		Y_EDGE(s->y_plus.w,x-1,y-1)=bed_s;
 		}
 	}
+	
+	for(uint32_t x=0;x<s->x_points-2;x++)
+	{
+	float bed=0.5*(BED(x,0)+BED(x+1,0));
+		if(Y_EDGE(s->y_minus.w,x,0)<bed)Y_EDGE(s->y_minus.w,x,0)=bed;
+	bed=0.5*(BED(x,s->y_points-2)+BED(x+1,s->y_points-2));
+		if(Y_EDGE(s->y_plus.w,x,s->y_points-2)<bed)Y_EDGE(s->y_plus.w,x,s->y_points-2)=bed;
+	}
+	for(uint32_t y=0;y<s->y_points-2;y++)
+	{
+	float bed=0.5*(BED(0,y)+BED(0,y+1));
+		if(X_EDGE(s->x_minus.w,0,y)<bed)X_EDGE(s->x_minus.w,0,y)=bed;
+	bed=0.5*(BED(s->x_points-2,y)+BED(s->x_points-2,y+1));
+		if(X_EDGE(s->x_plus.w,s->x_points-2,y)<bed)X_EDGE(s->x_plus.w,s->x_points-2,y)=bed;
+	}
+	
 //Compute fluxes
 compute_fluxes(s);
 	
@@ -326,7 +378,6 @@ compute_fluxes(s);
 	CELL(s->cells.w,x,y)+=dt*(X_EDGE(s->x_flux_w,x-1,y-1)-X_EDGE(s->x_flux_w,x,y-1)+Y_EDGE(s->y_flux_w,x-1,y-1)-Y_EDGE(s->y_flux_w,x-1,y))/s->delta_x;
 	CELL(s->cells.qx,x,y)+=dt*(X_EDGE(s->x_flux_qx,x-1,y-1)-X_EDGE(s->x_flux_qx,x,y-1)+Y_EDGE(s->y_flux_qx,x-1,y-1)-Y_EDGE(s->y_flux_qx,x-1,y))/s->delta_x-0.5*9.81*dt*(CELL(s->cells.w,x,y)-bed)*((BED(x,y)+BED(x,y-1))-(BED(x-1,y)+BED(x-1,y-1)))/s->delta_x-(s->delta_x*s->delta_x/dt)*0.00001*CELL(s->cells.qx,x,y)/(CELL(s->cells.w,x,y)*CELL(s->cells.w,x,y));
 	CELL(s->cells.qy,x,y)+=dt*(X_EDGE(s->x_flux_qy,x-1,y-1)-X_EDGE(s->x_flux_qy,x,y-1)+Y_EDGE(s->y_flux_qy,x-1,y-1)-Y_EDGE(s->y_flux_qy,x-1,y))/s->delta_x-0.5*9.81*dt*(CELL(s->cells.w,x,y)-bed)*((BED(x,y)+BED(x-1,y))-(BED(x,y-1)+BED(x-1,y-1)))/s->delta_x-(s->delta_x*s->delta_x/dt)*0.00001*CELL(s->cells.qy,x,y)/(CELL(s->cells.w,x,y)*CELL(s->cells.w,x,y));
-
 
 	}
 
