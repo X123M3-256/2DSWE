@@ -71,7 +71,7 @@
 
 		float tool_x=2.5;
 		float tool_y=2.5;
-		float dt=0.002;
+		float dt=0.005;
 		int tool=0;
 		float add_rate=0.0;
 
@@ -87,8 +87,8 @@
 					if(event.type==SDL_QUIT)running=false;
 					else if(event.type==SDL_MOUSEBUTTONDOWN)
 					{
-						if(event.button.button==SDL_BUTTON_LEFT)add_rate=0.001;
-						else if(event.button.button==SDL_BUTTON_RIGHT)add_rate=-0.001;
+						if(event.button.button==SDL_BUTTON_LEFT)add_rate=0.01;
+						else if(event.button.button==SDL_BUTTON_RIGHT)add_rate=-0.01;
 					}
 					else if(event.type==SDL_MOUSEBUTTONUP)
 					{
@@ -157,7 +157,12 @@
 					for(uint32_t x=1;x<solver.x_points-1;x++)
 					{	
 					float bed=0.25*(BED(x,y)+BED(x-1,y)+BED(x,y-1)+BED(x-1,y-1));
-						if(solver.cells.w[x+y*solver.x_points]<bed)solver.cells.w[x+y*solver.x_points]=bed;
+						if(solver.cells.w[x+y*solver.x_points]<bed+0.1)
+						{
+						solver.cells.w[x+y*solver.x_points]=bed;
+						solver.cells.qx[x+y*solver.x_points]=0.0;
+						solver.cells.qy[x+y*solver.x_points]=0.0;
+						}
 					}
 				}
 			
@@ -186,7 +191,7 @@
 			heightmap_render(&bed,projection);
 			SDL_GL_SwapWindow(window);
 			t+=2*dt;
-			printf("%f\n",t);
+			//printf("%f\n",t);
 			}
 
 		SDL_GL_DeleteContext(context);

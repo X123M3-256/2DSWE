@@ -284,7 +284,7 @@ glBindVertexArray(0);
 }
 
 
-#define TEXTURE_SIZE 10.0
+#define TEXTURE_SIZE 5.0
 
 
 void water_init(water_t* water,int n,float size,float x_offset,float y_offset,float z_offset,const char* filename)
@@ -412,7 +412,7 @@ void step_uvs(water_t* water,float* uvs,float* velocity_x,float* velocity_y,floa
 
 }
 
-#define TEXTURE_CYCLE_TIME 0.5
+#define TEXTURE_CYCLE_TIME 1.5
 
 void water_update(water_t* water,float* data,float* velocity_x,float* velocity_y,float dt)
 {
