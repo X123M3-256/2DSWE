@@ -9,6 +9,38 @@
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
 
+
+typedef struct
+{
+vector3_t position;
+quaternion_t orientation;
+}camera_t;
+
+void compute_mvp(const float* p,camera_t* camera,float* mvp)
+{
+
+//p[0] p[4] p[8] p[12]  m[0] m[1] m[2] x   
+//p[1] p[5] p[9] p[13] m[3] m[4] m[5] y   
+//p[2] p[6] p[10] p[14] m[6] m[7] m[8] z   
+//p[3] p[7] p[11] p[15]    0    0    0 1
+matrix_t mat=matrix_mult(matrix_rotate(quaternion_inverse(camera->orientation)),matrix_translate(vector3_scale(camera->position,-1)));
+
+vector3_t translation=vector3_scale(camera->position,-1.0);
+float* m=mat.entries;
+
+memset(mvp,0,16*sizeof(float));
+
+	for(int row=0;row<4;row++)
+	for(int col=0;col<4;col++)
+	for(int i=0;i<4;i++)
+	{
+	mvp[row+4*col]+=p[row+4*i]*m[col+4*i];
+	}
+}
+
+
+
+
 	int main(int argc,char* argv[])
 	{
 		//Initialize SDL
@@ -38,45 +70,71 @@
 		}
 		init_render();	
 
-		float scale=180.0/10.0;
 
+		/*	
+		//Isometric projection
+		float scale=180.0/10.0;
 		float x_unit=scale/SCREEN_WIDTH;
 		float y_unit=scale/SCREEN_HEIGHT;
 		float z_unit=1e-3;
-
 		const float projection[]={
 			-sqrt(0.5)*x_unit,0.5*sqrt(0.5)*y_unit,0.25*sqrt(6)*z_unit,0.0f,
 			sqrt(0.5)*x_unit,0.5*sqrt(0.5)*y_unit,0.25*sqrt(6)*z_unit,0.0f,
 			0.0f,0.5*sqrt(3)*y_unit,-0.5*z_unit,0.0f,
 			0.0f,-0.8f,0.0f,1.0f,
 			};
-/*
+		*/
+		float mvp[16];
+
+		//Perspective projection
+		float n=0.1;
+		float f=1000.0;
+		float w=1.5*n;
+		float h=w*(SCREEN_HEIGHT/(float)SCREEN_WIDTH);
+		
 		const float projection[]={
-			-sqrt(0.5)*x_unit, 0.5*sqrt(0.5)*y_unit, 0.25*sqrt(6)*z_unit,0.0f,
-			 sqrt(0.5)*x_unit, 0.5*sqrt(0.5)*y_unit, 0.25*sqrt(6)*z_unit,0.0f,
-			             0.0f,  0.5*sqrt(3)*y_unit,          -0.5*z_unit,0.0f,
-			             0.0f,               -0.0f,                 0.0f,1.0f,
+			2*n/w,0,0,0,
+			0,2*n/h,0,0,
+			0,0, -(f+n)/(f-n),-1,
+			0,0,-2*f*n/(f-n),0
 			};
-*/
+
+		camera_t camera;
+		camera.position=vector3(25,25,10);
+		camera.orientation=quaternion_identity();
+		
+
+		float camera_pitch=1.0;
+		float camera_yaw=0.0;
+		int panning=0;
+		int advancing=0;
+		float pan_rate=0.005;
+		float advance_rate=0.1;
+	
+
+
 
 		heightmap_t bed;
 		water_t water;
 		float size=50.0;
-		int n=100;
+		int points=100;
 
-		float dx=size/(n-1);
-		heightmap_init(&bed,n-1,size-dx,0,0,0.01,"rock_texture.png");
-		water_init(&water,n,size,-0.5*dx,-0.5*dx,0,"water_texture.png");
+		float dx=size/(points-1);
+		heightmap_init(&bed,points-1,size-dx,0,0,0.01,"rock_texture.png");
+		water_init(&water,points,size,-0.5*dx,-0.5*dx,0,"water_texture.png");
 
 
+
+		float dt=0.005;
+/*
 		float tool_x=2.5;
 		float tool_y=2.5;
-		float dt=0.005;
 		int tool=0;
 		float add_rate=0.0;
+*/
 
 		solver_t solver;
-		solver_init(&solver,n,n,size);
+		solver_init(&solver,points,points,size);
 		int running=true;
 		float t=0.0;
 			while(running)
@@ -87,24 +145,31 @@
 					if(event.type==SDL_QUIT)running=false;
 					else if(event.type==SDL_MOUSEBUTTONDOWN)
 					{
-						if(event.button.button==SDL_BUTTON_LEFT)add_rate=0.01;
-						else if(event.button.button==SDL_BUTTON_RIGHT)add_rate=-0.01;
+						if(event.button.button==SDL_BUTTON_LEFT)advancing=1;
+						else if(event.button.button==SDL_BUTTON_RIGHT)panning=1;
 					}
 					else if(event.type==SDL_MOUSEBUTTONUP)
 					{
-					add_rate=0.0;	
+						if(event.button.button==SDL_BUTTON_LEFT)advancing=0;
+						else if(event.button.button==SDL_BUTTON_RIGHT)panning=0;
+					//add_rate=0.0;	
 					}
 					else if(event.type==SDL_MOUSEMOTION)
 					{
-					float screen_x=-1.0+2.0*(event.motion.x/(float)SCREEN_WIDTH);
-					float screen_y=-1.0+2.0*((SCREEN_HEIGHT-event.motion.y)/(float)SCREEN_HEIGHT)+0.8;
-					tool_x=0.5*sqrt(2)*(2.0*screen_y/y_unit-screen_x/x_unit);
-					tool_y=0.5*sqrt(2)*(2.0*screen_y/y_unit+screen_x/x_unit);
+						if(panning)
+						{
+						camera_yaw+=-pan_rate*event.motion.xrel;
+						camera_pitch+=pan_rate*event.motion.yrel;
+						}
+					//float screen_x=-1.0+2.0*(event.motion.x/(float)SCREEN_WIDTH);
+					//float screen_y=-1.0+2.0*((SCREEN_HEIGHT-event.motion.y)/(float)SCREEN_HEIGHT)+0.8;
+					//tool_x=0.5*sqrt(2)*(2.0*screen_y/y_unit-screen_x/x_unit);
+					//tool_y=0.5*sqrt(2)*(2.0*screen_y/y_unit+screen_x/x_unit);
 					}
 					else if(event.type==SDL_KEYDOWN)
 					{
-						if(event.key.keysym.sym==SDLK_w)tool=0;	
-						else if(event.key.keysym.sym==SDLK_s)tool=1;
+					//	if(event.key.keysym.sym==SDLK_w)tool=0;	
+					//	else if(event.key.keysym.sym==SDLK_s)tool=1;
 					}
 	
 				}
@@ -112,6 +177,7 @@
 			glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
 			#define BED(x,y) (solver.bed[(x)+(y)*(solver.x_points-1)])
+			/*
 				if(add_rate!=0.0)
 				{
 					if(tool==0)
@@ -157,15 +223,20 @@
 					for(uint32_t x=1;x<solver.x_points-1;x++)
 					{	
 					float bed=0.25*(BED(x,y)+BED(x-1,y)+BED(x,y-1)+BED(x-1,y-1));
-						if(solver.cells.w[x+y*solver.x_points]<bed+0.1)
+						if(solver.cells.w[x+y*solver.x_points]<bed+0.2)
 						{
-						solver.cells.w[x+y*solver.x_points]=bed;
 						solver.cells.qx[x+y*solver.x_points]=0.0;
 						solver.cells.qy[x+y*solver.x_points]=0.0;
 						}
+						if(solver.cells.w[x+y*solver.x_points]<bed)
+						{
+						solver.cells.w[x+y*solver.x_points]=bed;
+						}
 					}
 				}
-			
+			*/			
+
+
 			solver_compute_step(&solver,dt);
 			solver_compute_step(&solver,dt);
 		
@@ -187,8 +258,12 @@
 			free(velocity_x);
 			free(velocity_y);
 
-			water_render(&water,projection);
-			heightmap_render(&bed,projection);
+			camera.orientation=quaternion_mult(quaternion_axis(vector3(-camera_pitch,0,0)),quaternion_axis(vector3(0,0,camera_yaw)));
+				if(advancing)camera.position=vector3_add(camera.position,quaternion_vector(camera.orientation,vector3(0,0,-advance_rate)));
+			compute_mvp(projection,&camera,mvp);
+
+			water_render(&water,mvp);
+			heightmap_render(&bed,mvp);
 			SDL_GL_SwapWindow(window);
 			t+=2*dt;
 			//printf("%f\n",t);

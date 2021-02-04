@@ -16,6 +16,6 @@ PKG_SEARCH_MODULE(SDL2 REQUIRED sdl2)
 LINK_DIRECTORIES(${SDL2_LIBRARY_DIRS} ${CAIRO_LIBRARY_DIRS})
 INCLUDE_DIRECTORIES(${SDL2_INCLUDE_DIRS} ${OPENGL_INCLUDE_DIR}/Headers)
 
-add_executable(${PROJECT_NAME} src/main.c src/render.c src/solver.c)
+add_executable(${PROJECT_NAME} src/main.c src/render.c src/solver.c src/vectormath.c)
 TARGET_LINK_LIBRARIES(${PROJECT_NAME} m png ${SDL2_LIBRARIES} GLEW::GLEW OpenGL::GL)
 

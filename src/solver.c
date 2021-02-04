@@ -51,7 +51,7 @@ solver->bed=calloc((x_points-1)*(y_points-1),sizeof(float));
 	float y=(j-0.5)*solver->delta_x;
 	float bed=0.25*(solver->bed[i+j*(solver->x_points-1)]+solver->bed[(i-1)+j*(solver->x_points-1)]+solver->bed[i+(j-1)*(solver->x_points-1)]+solver->bed[(i-1)+(j-1)*(solver->x_points-1)]);
 	//float level=3.0*(x/50.0)+2.5;
-	float level=x>35?4:1.5;
+	float level=x>35?5:1.5;
 	solver->cells.w[i+j*x_points]=bed>level?bed:level;
 	}
 
@@ -167,7 +167,7 @@ static float t=0;
 	for(uint32_t x=1;x<s->x_points-1;x++)
 	{
 	float bed=0.5*(BED(x,0)+BED(x-1,0));
-	float level=((x-0.5)*s->delta_x)>35?4:1.5;
+	float level=((x-0.5)*s->delta_x)>35?4.1:1.5;
 	//float level=0.0;
 	CELL(s->cells.w,x,0)=level>bed?level:bed;//*CELL(s->cells.w,x,1);
 	CELL(s->cells.qx,x,0)=CELL(s->cells.qx,x,1);
@@ -190,7 +190,7 @@ static float t=0;
 
 	bed=0.5*(BED(s->x_points-2,y)+BED(s->x_points-2,y-1));
 	//level=5.5;//+0.04*sin(t);
-	level=4;
+	level=4.1;
 	CELL(s->cells.w,s->x_points-1,y)=level>bed?level:bed;//0.5*(BED(s->x_points-2,y)+BED(s->x_points-2,y));//CELL(s->cells.w,s->x_points-2,y);
 	CELL(s->cells.qx,s->x_points-1,y)=0;//CELL(s->cells.qx,s->x_points-2,y);
 	CELL(s->cells.qy,s->x_points-1,y)=CELL(s->cells.qy,s->x_points-2,y);

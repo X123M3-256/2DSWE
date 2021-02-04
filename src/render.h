@@ -4,7 +4,7 @@
 
 #include<GL/glew.h>
 #include<GL/gl.h>
-
+#include "vectormath.h"
 
 typedef struct
 {
