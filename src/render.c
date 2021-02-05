@@ -2,7 +2,6 @@
 #include<stdio.h>
 #include<math.h>
 #include<limits.h>
-#include<png.h>
 #include "render.h"
 
 struct
@@ -31,6 +30,16 @@ struct
 	GLuint u_loc;
 	}
 	water_shader;
+	
+	struct
+	{
+	GLuint program;
+	GLuint camera_loc;
+	GLuint cubemap_loc;
+	GLuint normalized_width_loc;
+	GLuint normalized_height_loc;
+	}
+	skybox_shader;
 }
 resources;
 
@@ -79,6 +88,7 @@ return program;
 void init_render()
 {
 glEnable(GL_DEPTH_TEST); 
+glDepthFunc(GL_LEQUAL);
 resources.heightmap_shader.program=shader_build("shaders/vertex.glsl","shaders/fragment.glsl");
 resources.heightmap_shader.mvp_loc=glGetUniformLocation(resources.heightmap_shader.program,"mvp");
 resources.heightmap_shader.heightmap_loc=glGetUniformLocation(resources.heightmap_shader.program,"heightmap");
@@ -95,83 +105,12 @@ resources.water_shader.delta_x_loc=glGetUniformLocation(resources.water_shader.p
 resources.water_shader.map_size_loc=glGetUniformLocation(resources.water_shader.program,"map_size");
 resources.water_shader.offset_loc=glGetUniformLocation(resources.water_shader.program,"offset");
 resources.water_shader.u_loc=glGetUniformLocation(resources.water_shader.program,"u");
-}
 
-int texture_load(const char* filename)
-{
-FILE *fp = fopen(filename, "rb");
-	if(!fp)
-	{
-	return -1;
-	}
-png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-	if(!png)
-	{
-	fclose(fp);
-	return -1;
-	}
-png_infop info = png_create_info_struct(png);
-	if(!info)
-	{
-	fclose(fp);
-	return -1;
-	}	
-	if(setjmp(png_jmpbuf(png))) abort();//TODO Not sure what this does but I don't think it's what I want
-
-png_init_io(png,fp);
-png_read_info(png,info);
-
-int width=png_get_image_width(png,info);
-int height=png_get_image_height(png,info);
-
-png_byte color_type=png_get_color_type(png,info);
-png_byte bit_depth=png_get_bit_depth(png,info);
-	if(bit_depth==16)png_set_strip_16(png);
-	if(color_type==PNG_COLOR_TYPE_PALETTE)png_set_palette_to_rgb(png);
-
-// PNG_COLOR_TYPE_GRAY_ALPHA is always 8 or 16bit depth.
-	if(color_type==PNG_COLOR_TYPE_GRAY&&bit_depth<8)png_set_expand_gray_1_2_4_to_8(png);
-	if(png_get_valid(png, info, PNG_INFO_tRNS))png_set_tRNS_to_alpha(png);
-
-// These color_type don't have an alpha channel then fill it with 0xff
-	if(color_type==PNG_COLOR_TYPE_RGB||color_type==PNG_COLOR_TYPE_GRAY||color_type==PNG_COLOR_TYPE_PALETTE)png_set_filler(png, 0xFF, PNG_FILLER_AFTER);
-	if(color_type == PNG_COLOR_TYPE_GRAY||color_type == PNG_COLOR_TYPE_GRAY_ALPHA)png_set_gray_to_rgb(png);
-
-png_read_update_info(png, info);
-
-png_bytep* row_pointers=malloc(sizeof(png_bytep)*height);
-	for(int y=0;y<height;y++)
-	{
-	row_pointers[y]=malloc(sizeof(png_byte)*png_get_rowbytes(png,info));
-	}
-
-png_read_image(png,row_pointers);
-
-unsigned char* pixels=malloc(3*width*height);
-
-	for(int y=0;y<height;y++)
-	for(int x=0;x<width;x++)
-	for(int i=0;i<3;i++)
-	{
-	pixels[3*(x+y*width)+i]=row_pointers[y][4*x+i];
-	}
-	for(int y=0;y<height;y++)
-	{
-	free(row_pointers[y]);
-	}
-free(row_pointers);
-fclose(fp);
-
-int texture;
-glGenTextures(1,&texture);
-glBindTexture(GL_TEXTURE_2D,texture);
-glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,GL_REPEAT);
-glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,width,height,0,GL_RGB,GL_UNSIGNED_BYTE,pixels);
-free(pixels);
-return texture;
+resources.skybox_shader.program=shader_build("shaders/skybox/vertex.glsl","shaders/skybox/fragment.glsl");
+resources.skybox_shader.camera_loc=glGetUniformLocation(resources.skybox_shader.program,"camera");
+resources.skybox_shader.cubemap_loc=glGetUniformLocation(resources.skybox_shader.program,"cubemap");
+resources.skybox_shader.normalized_width_loc=glGetUniformLocation(resources.skybox_shader.program,"normalized_width");
+resources.skybox_shader.normalized_height_loc=glGetUniformLocation(resources.skybox_shader.program,"normalized_height");
 }
 
 
@@ -470,3 +409,54 @@ glUniform3f(resources.water_shader.offset_loc,water->x_offset,water->y_offset,wa
 glDrawElements(GL_TRIANGLES,water->num_indices,GL_UNSIGNED_INT,0);
 glBindVertexArray(0);
 }
+
+
+
+void skybox_init(skybox_t* skybox,float w,float h,int cubemap)
+{
+skybox->normalized_width=w;
+skybox->normalized_height=h;
+skybox->cubemap=cubemap;
+
+float vertices[]={-1,-1, 1,-1, -1,1, 1,1};
+int indices[]={0,1,2,1,2,3};
+
+glGenVertexArrays(1, &(skybox->vao));  
+glBindVertexArray(skybox->vao);
+glGenBuffers(1,&(skybox->vbo));
+glGenBuffers(1,&(skybox->ibo));
+
+//Send buffer data to graphics card
+glBindBuffer(GL_ARRAY_BUFFER,skybox->vbo);
+glBufferData(GL_ARRAY_BUFFER,8*sizeof(float),vertices,GL_STATIC_DRAW);
+glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,2*sizeof(float),(void*)0);
+glEnableVertexAttribArray(0);
+
+glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,skybox->ibo);
+glBufferData(GL_ELEMENT_ARRAY_BUFFER,6*sizeof(GLuint),indices,GL_STATIC_DRAW);
+glBindVertexArray(0);
+}
+
+
+void skybox_render(skybox_t* skybox,matrix_t camera)
+{
+glUseProgram(resources.skybox_shader.program);
+glBindVertexArray(skybox->vao);
+
+//Bind textures
+glActiveTexture(GL_TEXTURE0);
+glBindTexture(GL_TEXTURE_CUBE_MAP,skybox->cubemap);
+
+//Assign uniforms
+glUniformMatrix4fv(resources.skybox_shader.camera_loc,1,GL_TRUE,camera.entries);
+glUniform1f(resources.skybox_shader.normalized_width_loc,0.5*skybox->normalized_width);
+glUniform1f(resources.skybox_shader.normalized_height_loc,0.5*skybox->normalized_height);
+glUniform1i(resources.skybox_shader.cubemap_loc,0);
+
+//Render patch
+glDrawElements(GL_TRIANGLES,6,GL_UNSIGNED_INT,0);
+glBindVertexArray(0);
+
+}
+
+

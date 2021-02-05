@@ -41,6 +41,11 @@ memset(mvp,0,16*sizeof(float));
 
 
 
+
+
+
+
+
 	int main(int argc,char* argv[])
 	{
 		//Initialize SDL
@@ -103,6 +108,17 @@ memset(mvp,0,16*sizeof(float));
 		camera.position=vector3(25,25,10);
 		camera.orientation=quaternion_identity();
 		
+
+		int skybox_texture=texture_load_cubemap("skybox.png");
+			if(skybox_texture==-1)
+			{
+			printf("Failed loading skybox texture\n");
+			}
+		skybox_t skybox;
+		skybox_init(&skybox,w/n,h/n,skybox_texture);
+
+
+	
 
 		float camera_pitch=1.0;
 		float camera_yaw=0.0;
@@ -262,8 +278,11 @@ memset(mvp,0,16*sizeof(float));
 				if(advancing)camera.position=vector3_add(camera.position,quaternion_vector(camera.orientation,vector3(0,0,-advance_rate)));
 			compute_mvp(projection,&camera,mvp);
 
+
+
 			water_render(&water,mvp);
 			heightmap_render(&bed,mvp);
+			skybox_render(&skybox,matrix_rotate(camera.orientation));
 			SDL_GL_SwapWindow(window);
 			t+=2*dt;
 			//printf("%f\n",t);
